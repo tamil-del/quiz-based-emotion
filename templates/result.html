@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Results - Emotion Quiz</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .emotion-color-happy { color: #f59e0b; }
+        .emotion-color-sad { color: #3b82f6; }
+        .emotion-color-default { color: #4f46e5; }
+        .border-correct { border-left: 4px solid #10b981; }
+        .border-incorrect { border-left: 4px solid #ef4444; }
+        .text-correct { color: #10b981; }
+        .text-incorrect { color: #ef4444; }
+    </style>
+</head>
+<body data-quiz-score="{{ score|default(0) }}" data-quiz-accuracy="{{ accuracy|default(0) }}" data-emotion="{{ emotion|default('') }}">
+    <div class="container">
+        <!-- Header -->
+        <header class="header slide-down">
+            <h1><i class="fas fa-trophy bounce"></i> Your Quiz Results</h1>
+            <p>{{ username }}, here's how you performed!</p>
+        </header>
+        
+        <div class="results-container">
+            <!-- Score Circle -->
+            <div class="score-section bounce-in stagger-1">
+                <div class="score-circle" style="animation-delay: 0.2s;">
+                    <div class="score-value">{{ score }}</div>
+                    <div class="score-label">Points</div>
+                </div>
+                <div class="score-info fade-in" style="animation-delay: 0.3s;">
+                    <h2>Congratulations!</h2>
+                    <p>You scored <strong>{{ score }}</strong> points out of <strong>{{ total_points }}</strong></p>
+                    <p class="accuracy">Accuracy: <span style="color: #10b981; font-weight: bold;">{{ accuracy }}%</span></p>
+                </div>
+            </div>
+            
+            <!-- Emotion Analysis -->
+            <div class="card card-entrance fade-in stagger-2" style="animation-delay: 0.4s;">
+                <div style="display:flex; align-items:center; gap:20px; margin-bottom:20px; border-bottom:2px solid #f3f4f6; padding-bottom:20px;">
+                    <div style="font-size: 3rem;">
+                        {% if emotion == 'happy' %}😊
+                        {% elif emotion == 'sad' %}😢
+                        {% elif emotion == 'angry' %}😠
+                        {% elif emotion == 'excited' %}🤩
+                        {% else %}😐{% endif %}
+                    </div>
+                    <div>
+                        <h3>Quiz Emotion Mode: <span class="{% if emotion == 'happy' %}emotion-color-happy{% elif emotion == 'sad' %}emotion-color-sad{% else %}emotion-color-default{% endif %}">{{ emotion|capitalize }}</span></h3>
+                        <p>You completed this quiz in {{ emotion }} emotion mode</p>
+                    </div>
+                </div>
+                <div style="background: #f9fafb; padding:15px; border-radius:8px;">
+                    <p><i class="fas fa-check-circle" style="color: #10b981;"></i> Performance was optimized for your emotional state</p>
+                </div>
+            </div>
+            
+            <!-- Detailed Analysis -->
+            <div class="card card-entrance slide-up stagger-3" style="animation-delay: 0.5s;">
+                <h3><i class="fas fa-chart-bar"></i> Detailed Analysis</h3>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;">
+                    <div class="stat-box" style="animation-delay: 0.1s;">
+                        <div class="stat-label">Total Questions</div>
+                        <div class="stat-value">{{ total_questions }}</div>
+                    </div>
+                    <div class="stat-box pulse" style="animation-delay: 0.2s;">
+                        <div class="stat-label">Correct Answers</div>
+                        <div class="stat-value" style="color: #10b981;">{{ correct_answers }}</div>
+                    </div>
+                    <div class="stat-box" style="animation-delay: 0.3s;">
+                        <div class="stat-label">Wrong Answers</div>
+                        <div class="stat-value" style="color: #ef4444;">{{ wrong_answers }}</div>
+                    </div>
+                    <div class="stat-box" style="animation-delay: 0.4s;">
+                        <div class="stat-label">Time Taken</div>
+                        <div class="stat-value">{{ time_taken }}s</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Question Container -->
+            <div class="card card-entrance" style="animation-delay: 0.6s;">
+                <h3><i class="fas fa-list"></i> Question Review</h3>
+                
+                <div id="questionReview" style="margin-top: 20px;">
+                    {% for question in questions %}
+                    <div class="question-review-item bounce-in stagger-{{ loop.index }} {% if question.is_correct %}border-correct{% else %}border-incorrect{% endif %}" style="padding: 15px; margin-bottom: 15px; background: #f9fafb; border-radius: 8px;" data-delay="{{ loop.index }}">
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                            {% if question.is_correct %}
+                            <i class="fas fa-check-circle" style="color: #10b981; font-size: 1.5rem;"></i>
+                            <span style="color: #10b981; font-weight: bold;">Correct</span>
+                            {% else %}
+                            <i class="fas fa-times-circle" style="color: #ef4444; font-size: 1.5rem;"></i>
+                            <span style="color: #ef4444; font-weight: bold;">Incorrect</span>
+                            {% endif %}
+                        </div>
+                        <p><strong>Q{{ loop.index }}. {{ question.question }}</strong></p>
+                        <p>Your answer: <span class="{% if question.is_correct %}text-correct{% else %}text-incorrect{% endif %}">{{ question.user_answer }}</span></p>
+                        {% if not question.is_correct %}
+                        <p>Correct answer: <span style="color: #10b981;">{{ question.correct_answer }}</span></p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="card card-entrance swing" style="animation-delay: 0.7s;">
+                <div style="text-align: center;">
+                    <h3 style="margin-bottom: 20px;">What would you like to do?</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <a href="/certificate" class="btn btn-success" style="animation: slideInRight 0.5s ease-in-out;">
+                            <i class="fas fa-certificate"></i> Get Certificate
+                        </a>
+                        <a href="/leaderboard" class="btn btn-warning" style="animation: slideInRight 0.5s ease-in-out 0.1s forwards;">
+                            <i class="fas fa-trophy"></i> View Leaderboard
+                        </a>
+                        <a href="/feedback" class="btn btn-info" style="animation: slideInRight 0.5s ease-in-out 0.2s forwards;">
+                            <i class="fas fa-comment-dots"></i> Give Feedback
+                        </a>
+                        <a href="/" class="btn btn-secondary" style="animation: slideInRight 0.5s ease-in-out 0.3s forwards;">
+                            <i class="fas fa-redo"></i> Play Again
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <footer class="footer">
+            <a href="/" class="btn btn-secondary">
+                <i class="fas fa-home"></i> Home
+            </a>
+            <a href="/leaderboard" class="btn">
+                <i class="fas fa-trophy"></i> Leaderboard
+            </a>
+            <a href="/feedback" class="btn">
+                <i class="fas fa-comment-dots"></i> Feedback
+            </a>
+        </footer>
+    </div>
+    
+    <script>
+        const quizScore = parseInt(document.body.getAttribute('data-quiz-score')) || 0;
+        const quizAccuracy = parseInt(document.body.getAttribute('data-quiz-accuracy')) || 0;
+        const emotion = document.body.getAttribute('data-emotion') || '';
+        
+        // Set animation delays for question review items
+        document.querySelectorAll('.question-review-item').forEach((item) => {
+            const delay = item.getAttribute('data-delay');
+            if (delay) {
+                item.style.animationDelay = (delay * 0.1) + 's';
+            }
+        });
+        
+        // Add confetti effect if score is high
+        if (quizScore >= 70) {
+            launchConfetti();
+        }
+        
+        function launchConfetti() {
+            const confettiCount = 50;
+            for (let i = 0; i < confettiCount; i++) {
+                const confetti = document.createElement('div');
+                confetti.style.position = 'fixed';
+                confetti.style.width = '10px';
+                confetti.style.height = '10px';
+                confetti.style.backgroundColor = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#ffa502', '#ff6348'][Math.floor(Math.random() * 5)];
+                confetti.style.left = Math.random() * window.innerWidth + 'px';
+                confetti.style.top = '-10px';
+                confetti.style.opacity = '1';
+                confetti.style.zIndex = '999';
+                confetti.style.borderRadius = '50%';
+                document.body.appendChild(confetti);
+                
+                const duration = Math.random() * 3000 + 2000;
+                let startTime = Date.now();
+                
+                function animate() {
+                    const elapsed = Date.now() - startTime;
+                    const progress = elapsed / duration;
+                    
+                    if (progress < 1) {
+                        confetti.style.top = (progress * window.innerHeight) + 'px';
+                        confetti.style.left = (parseFloat(confetti.style.left) + Math.sin(progress * Math.PI * 2) * 2) + 'px';
+                        confetti.style.opacity = 1 - progress;
+                        requestAnimationFrame(animate);
+                    } else {
+                        confetti.remove();
+                    }
+                }
+                
+                animate();
+            }
+        }
+    </script>
+</body>
+</html>

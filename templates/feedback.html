@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feedback - Emotion Quiz</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header swing slide-down">
+            <h1><i class="fas fa-comments bounce"></i> Your Feedback Matters!</h1>
+            <p>Help us improve the Emotion Quiz experience</p>
+        </header>
+        
+        <div class="feedback-container">
+            <!-- Feedback Stats -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 30px;">
+                <div class="card pulse card-entrance stagger-1" style="animation-delay: 0.1s; text-align: center;">
+                    <div style="font-size: 2rem; margin-bottom: 10px;">📝</div>
+                    <div style="font-size: 2rem; font-weight: bold; color: #7e22ce;">{{ total_feedback }}</div>
+                    <p>Total Feedback</p>
+                </div>
+                
+                <div class="card pulse card-entrance stagger-2" style="animation-delay: 0.2s; text-align: center;">
+                    <div style="font-size: 2rem; margin-bottom: 10px;">⭐</div>
+                    <div style="font-size: 2rem; font-weight: bold; color: #f59e0b;">{{ avg_rating }}/5</div>
+                    <p>Average Rating</p>
+                </div>
+                
+                <div class="card pulse card-entrance stagger-3" style="animation-delay: 0.3s; text-align: center;">
+                    <div style="font-size: 2rem; margin-bottom: 10px;">😊</div>
+                    <div style="font-size: 2rem; font-weight: bold; color: #10b981;">{{ satisfaction_rate }}%</div>
+                    <p>Satisfaction</p>
+                </div>
+                
+                <div class="card pulse card-entrance stagger-4" style="animation-delay: 0.4s; text-align: center;">
+                    <div style="font-size: 2rem; margin-bottom: 10px;">👥</div>
+                    <div style="font-size: 2rem; font-weight: bold; color: #3b82f6;">{{ unique_users }}</div>
+                    <p>User Reviews</p>
+                </div>
+            </div>
+            
+            <!-- Feedback Form -->
+            <div class="card card-entrance slide-up stagger-2" style="animation-delay: 0.5s;">
+                <h3><i class="fas fa-pen-fancy"></i> Share Your Feedback</h3>
+                
+                <form id="feedbackForm" style="margin-top: 20px;">
+                    <!-- Rating -->
+                    <div class="form-group">
+                        <label for="rating">Rate Your Experience</label>
+                        <div class="rating-container">
+                            <div class="star-rating" id="starRating">
+                                {% for i in range(1, 6) %}
+                                <i class="fas fa-star star" data-rating="{{ i }}" style="font-size: 2rem; color: #ddd; cursor: pointer; margin: 0 10px; transition: 0.2s; animation: bounce 0.5s ease-in-out {{ i * 0.1 }}s;"></i>
+                                {% endfor %}
+                            </div>
+                            <input type="hidden" id="rating" name="rating" value="0" required>
+                            <p id="ratingText" style="margin-top: 10px; color: #6b7280;">Please select a rating</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Emoji Reaction -->
+                    <div class="form-group">
+                        <label>How do you feel?</label>
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap; padding: 15px 0;">
+                            {% for emoji, value in [('😍', 'love'), ('😊', 'happy'), ('😐', 'neutral'), ('😞', 'sad'), ('😠', 'angry')] %}
+                            <div class="emotion-button bounce" style="animation-delay: {{ loop.index * 0.1 }}s;">
+                                <input type="radio" id="emoji-{{ value }}" name="emotion" value="{{ value }}" style="display: none;">
+                                <label for="emoji-{{ value }}" style="font-size: 3rem; cursor: pointer; transition: 0.3s; filter: grayscale(100%);">
+                                    {{ emoji }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- Category Selection -->
+                    <div class="form-group">
+                        <label for="category">What is your feedback about?</label>
+                        <select id="category" name="category" required style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem;">
+                            <option value="">Select a category</option>
+                            <option value="questions">Questions Quality</option>
+                            <option value="difficulty">Difficulty Level</option>
+                            <option value="ui">User Interface</option>
+                            <option value="performance">Performance</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Feedback Text -->
+                    <div class="form-group">
+                        <label for="feedback">Your Feedback</label>
+                        <textarea id="feedback" name="feedback" rows="6" placeholder="Tell us what you think..." required style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem; font-family: inherit;"></textarea>
+                    </div>
+                    
+                    <!-- Contact Info (Optional) -->
+                    <div class="form-group">
+                        <label for="contact">Contact (Optional)</label>
+                        <input type="email" id="contact" name="contact" placeholder="your@email.com" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem;">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success btn-lg swing" style="animation-delay: 0.1s; margin-top: 15px;">
+                        <i class="fas fa-paper-plane"></i> Submit Feedback
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Recent Feedback Highlights -->
+            <div class="card card-entrance slide-left stagger-3" style="animation-delay: 0.6s;">
+                <h3><i class="fas fa-clipboard-list bounce"></i> Featured Feedback</h3>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 20px;">
+                    {% for fb in recent_feedback[:6] %}
+                    <div class="bounce-in stagger-{{ loop.index }}" style="animation-delay: {{ 0.1 * loop.index }}s; padding: 15px; background: #f9fafb; border-radius: 8px; border-left: 4px solid #7e22ce;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <div style="font-size: 2rem;">
+                                {% if fb.emotion == 'love' %}😍
+                                {% elif fb.emotion == 'happy' %}😊
+                                {% elif fb.emotion == 'neutral' %}😐
+                                {% elif fb.emotion == 'sad' %}😞
+                                {% elif fb.emotion == 'angry' %}😠
+                                {% else %}😊{% endif %}
+                            </div>
+                            <div>
+                                <div style="font-weight: bold;">{{ fb.username }}</div>
+                                <div style="font-size: 0.9rem; color: #6b7280;">
+                                    {% for i in range(fb.rating) %}<i class="fas fa-star" style="color: #f59e0b;"></i>{% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <p style="margin: 10px 0; color: #4b5563;">{{ fb.feedback[:120] }}...</p>
+                        <div style="font-size: 0.8rem; color: #9ca3af;">{{ fb.category|capitalize }} • {{ fb.date }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Stats Charts -->
+            <div class="card card-entrance" style="animation-delay: 0.7s;">
+                <h3><i class="fas fa-chart-bar"></i> Feedback Statistics</h3>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px;">
+                    <!-- Rating Distribution -->
+                    <div class="chart-container bounce-in" style="animation-delay: 0.2s;">
+                        <h4>Rating Distribution</h4>
+                        <div style="margin-top: 15px;">
+                            {% for rating in range(5, 0, -1) %}
+                            <div style="margin-bottom: 10px;">
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                                    <span style="width: 50px;">
+                                        {% for i in range(rating) %}<i class="fas fa-star" style="color: #f59e0b; font-size: 0.9rem;"></i>{% endfor %}
+                                    </span>
+                                    <span style="color: #6b7280;">{{ rating_counts[rating] }}</span>
+                                </div>
+                                <div style="background: #e5e7eb; height: 20px; border-radius: 10px; overflow: hidden;">
+                                    <div style="background: linear-gradient(90deg, #7e22ce, #764ba2); height: 100%; width: {{ (rating_counts[rating] / max_feedback_count) * 100 }}%; transition: width 0.3s ease;"></div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- Category Distribution -->
+                    <div class="chart-container bounce-in" style="animation-delay: 0.3s;">
+                        <h4>Categories</h4>
+                        <div style="margin-top: 15px;">
+                            {% for category, count in category_counts.items() %}
+                            <div style="margin-bottom: 15px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                    <span>{{ category|capitalize }}</span>
+                                    <span style="font-weight: bold;">{{ count }}</span>
+                                </div>
+                                <div style="background: #e5e7eb; height: 20px; border-radius: 10px; overflow: hidden;">
+                                    <div style="background: linear-gradient(90deg, #3b82f6, #06b6d4); height: 100%; width: {{ (count / max_feedback_count) * 100 }}%; transition: width 0.3s ease;"></div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <footer class="footer">
+            <a href="/" class="btn btn-secondary">
+                <i class="fas fa-home"></i> Home
+            </a>
+            <a href="/leaderboard" class="btn">
+                <i class="fas fa-trophy"></i> Leaderboard
+            </a>
+            <a href="/quiz" class="btn btn-success">
+                <i class="fas fa-play"></i> Play Quiz
+            </a>
+        </footer>
+    </div>
+    
+    <script>
+        // Star Rating
+        const stars = document.querySelectorAll('.star');
+        const ratingInput = document.getElementById('rating');
+        const ratingText = document.getElementById('ratingText');
+        
+        const ratingMessages = {
+            1: 'We\'re sorry to hear that. Please tell us how we can improve.',
+            2: 'Thank you for the feedback. We\'ll work on improvements.',
+            3: 'Good! What could we do better?',
+            4: 'Great! Glad you enjoyed it.',
+            5: 'Excellent! We\'re thrilled you loved it!'
+        };
+        
+        stars.forEach(star => {
+            star.addEventListener('click', () => {
+                const rating = star.dataset.rating;
+                ratingInput.value = rating;
+                
+                stars.forEach((s, index) => {
+                    if (index < rating) {
+                        s.style.color = '#f59e0b';
+                    } else {
+                        s.style.color = '#ddd';
+                    }
+                });
+                
+                ratingText.textContent = ratingMessages[rating];
+                ratingText.style.color = '#7e22ce';
+            });
+            
+            star.addEventListener('mouseover', () => {
+                const hoverRating = star.dataset.rating;
+                stars.forEach((s, index) => {
+                    if (index < hoverRating) {
+                        s.style.color = '#f59e0b';
+                    } else {
+                        s.style.color = '#ddd';
+                    }
+                });
+            });
+        });
+        
+        document.getElementById('starRating').addEventListener('mouseleave', () => {
+            const rating = ratingInput.value;
+            stars.forEach((s, index) => {
+                if (index < rating) {
+                    s.style.color = '#f59e0b';
+                } else {
+                    s.style.color = '#ddd';
+                }
+            });
+        });
+        
+        // Emoji Selection Animation
+        const emotionButtons = document.querySelectorAll('.emotion-button');
+        emotionButtons.forEach(btn => {
+            const input = btn.querySelector('input[type="radio"]');
+            const label = btn.querySelector('label');
+            
+            input.addEventListener('change', () => {
+                emotionButtons.forEach(b => {
+                    b.querySelector('label').style.filter = 'grayscale(100%)';
+                });
+                label.style.filter = 'grayscale(0%)';
+            });
+        });
+        
+        // Form Submission
+        document.getElementById('feedbackForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                rating: document.getElementById('rating').value,
+                emotion: document.querySelector('input[name="emotion"]:checked')?.value || '',
+                category: document.getElementById('category').value,
+                feedback: document.getElementById('feedback').value,
+                contact: document.getElementById('contact').value
+            };
+            
+            if (!formData.rating || !formData.feedback) {
+                alert('Please complete all required fields.');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/submit_feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Thank you for your feedback! We appreciate your input.');
+                    document.getElementById('feedbackForm').reset();
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    alert('Error submitting feedback: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Network error. Please try again.');
+            }
+        });
+    </script>
+</body>
+</html>

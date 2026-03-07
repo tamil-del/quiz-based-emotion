@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard - Emotion Quiz</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header slide-down">
+            <h1><i class="fas fa-trophy bounce"></i> Leaderboard</h1>
+            <p>See how you rank against other players!</p>
+        </header>
+        
+        <div class="leaderboard-container">
+            <!-- Stats Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 30px;">
+                <div class="card text-gradient card-entrance stagger-1" style="animation-delay: 0.1s; text-align: center; padding: 20px;">
+                    <h3 style="font-size: 1.5rem; margin-bottom: 10px;"><i class="fas fa-users pulse"></i></h3>
+                    <div style="font-size: 2rem; font-weight: bold; color: #7e22ce;">{{ total_players }}</div>
+                    <p>Total Players</p>
+                </div>
+                
+                <div class="card text-gradient card-entrance stagger-2" style="animation-delay: 0.2s; text-align: center; padding: 20px;">
+                    <h3 style="font-size: 1.5rem; margin-bottom: 10px;"><i class="fas fa-chart-line swing"></i></h3>
+                    <div style="font-size: 2rem; font-weight: bold; color: #10b981;">{{ avg_score }}</div>
+                    <p>Avg Score</p>
+                </div>
+                
+                <div class="card text-gradient card-entrance stagger-3" style="animation-delay: 0.3s; text-align: center; padding: 20px;">
+                    <h3 style="font-size: 1.5rem; margin-bottom: 10px;"><i class="fas fa-list-ol bounce"></i></h3>
+                    <div style="font-size: 2rem; font-weight: bold; color: #f59e0b;">{{ your_rank }}</div>
+                    <p>Your Rank</p>
+                </div>
+                
+                <div class="card text-gradient card-entrance stagger-4" style="animation-delay: 0.4s; text-align: center; padding: 20px;">
+                    <h3 style="font-size: 1.5rem; margin-bottom: 10px;"><i class="fas fa-star flip"></i></h3>
+                    <div style="font-size: 2rem; font-weight: bold; color: #f59e0b;">{{ your_best_score }}</div>
+                    <p>Your Best</p>
+                </div>
+            </div>
+            
+            <!-- Top 3 Winners -->
+            {% if top_players %}
+            <div class="card card-entrance slide-left stagger-1" style="animation-delay: 0.5s; margin-bottom: 30px;">
+                <h3><i class="fas fa-crown text-gradient"></i> Top 3 Winners</h3>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px;">
+                    {% for idx, player in enumerate(top_players[:3], 1) %}
+                    <div class="bounce-in stagger-{{ idx }}" style="animation-delay: {{ 0.6 + idx * 0.1 }}s;">
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; color: white; text-align: center; position: relative;">
+                            {% if idx == 1 %}
+                            <div style="position: absolute; top: -15px; left: 50%; transform: translateX(-50%); font-size: 3rem;">🥇</div>
+                            {% elif idx == 2 %}
+                            <div style="position: absolute; top: -15px; left: 50%; transform: translateX(-50%); font-size: 3rem;">🥈</div>
+                            {% else %}
+                            <div style="position: absolute; top: -15px; left: 50%; transform: translateX(-50%); font-size: 3rem;">🥉</div>
+                            {% endif %}
+                            
+                            <h4 style="margin-top: 30px; font-size: 1.3rem;">{{ player.username }}</h4>
+                            <div style="font-size: 2.5rem; font-weight: bold; margin: 15px 0;">{{ player.score }}</div>
+                            <p style="opacity: 0.9;">{{ player.accuracy }}% Accuracy</p>
+                            <p style="opacity: 0.8; font-size: 0.9rem;">{{ player.quiz_count }} quizzes</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Full Leaderboard -->
+            <div class="card card-entrance" style="animation-delay: 0.6s;">
+                <h3><i class="fas fa-list pulse"></i> Full Leaderboard (Top 10)</h3>
+                
+                <div style="overflow-x: auto; margin-top: 20px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
+                                <th style="padding: 15px; text-align: left; font-weight: bold;"><i class="fas fa-award"></i> Rank</th>
+                                <th style="padding: 15px; text-align: left; font-weight: bold;"><i class="fas fa-user"></i> Player</th>
+                                <th style="padding: 15px; text-align: center; font-weight: bold;"><i class="fas fa-star"></i> Score</th>
+                                <th style="padding: 15px; text-align: center; font-weight: bold;"><i class="fas fa-percent"></i> Accuracy</th>
+                                <th style="padding: 15px; text-align: center; font-weight: bold;"><i class="fas fa-gamepad"></i> Quizzes</th>
+                                <th style="padding: 15px; text-align: center; font-weight: bold;"><i class="fas fa-clock"></i> Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for player in leaderboard %}
+                            <tr class="bounce-in stagger-{{ loop.index }}" style="animation-delay: {{ 0.1 * loop.index }}s; border-bottom: 1px solid #e5e7eb; {% if player.is_current_user %}background: #fef3c7; {% endif %}">
+                                <td style="padding: 15px; font-weight: bold; color: #7e22ce;">
+                                    {% if loop.index == 1 %}<i class="fas fa-crown" style="color: #f59e0b;"></i>{% elif loop.index == 2 %}<i class="fas fa-gem" style="color: #c0c0c0;"></i>{% elif loop.index == 3 %}<i class="fas fa-gem" style="color: #cd7f32;"></i>{% else %}{{ loop.index }}{% endif %}
+                                </td>
+                                <td style="padding: 15px;">
+                                    {% if player.is_current_user %}<strong style="color: #7e22ce;">{{ player.username }} (You)</strong>{% else %}{{ player.username }}{% endif %}
+                                </td>
+                                <td style="padding: 15px; text-align: center; font-weight: bold; color: #10b981;">{{ player.best_score }}</td>
+                                <td style="padding: 15px; text-align: center; color: #3b82f6;">{{ player.accuracy }}%</td>
+                                <td style="padding: 15px; text-align: center;">{{ player.quiz_count }}</td>
+                                <td style="padding: 15px; text-align: center; font-size: 0.9rem; color: #6b7280;">{{ player.last_quiz_date }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Your Stats -->
+            <div class="card card-entrance swing" style="animation-delay: 0.7s; margin-top: 30px;">
+                <h3><i class="fas fa-user-chart"></i> Your Statistics</h3>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px;">
+                    <div class="stat-box bounce-in" style="animation-delay: 0.2s;">
+                        <div class="stat-label">Total Quizzes Taken</div>
+                        <div class="stat-value" style="color: #7e22ce;">{{ your_stats.total_quizzes }}</div>
+                    </div>
+                    <div class="stat-box bounce-in" style="animation-delay: 0.3s;">
+                        <div class="stat-label">Best Score</div>
+                        <div class="stat-value" style="color: #f59e0b;">{{ your_stats.best_score }}</div>
+                    </div>
+                    <div class="stat-box bounce-in" style="animation-delay: 0.4s;">
+                        <div class="stat-label">Average Score</div>
+                        <div class="stat-value" style="color: #10b981;">{{ your_stats.avg_score }}</div>
+                    </div>
+                    <div class="stat-box bounce-in" style="animation-delay: 0.5s;">
+                        <div class="stat-label">Best Accuracy</div>
+                        <div class="stat-value" style="color: #3b82f6;">{{ your_stats.best_accuracy }}%</div>
+                    </div>
+                    <div class="stat-box bounce-in" style="animation-delay: 0.6s;">
+                        <div class="stat-label">Total Points</div>
+                        <div class="stat-value" style="color: #ec4899;">{{ your_stats.total_points }}</div>
+                    </div>
+                    <div class="stat-box bounce-in" style="animation-delay: 0.7s;">
+                        <div class="stat-label">Current Rank</div>
+                        <div class="stat-value" style="color: #f59e0b;">#{{ your_rank }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <footer class="footer">
+            <a href="/" class="btn btn-secondary">
+                <i class="fas fa-home"></i> Home
+            </a>
+            <a href="/quiz" class="btn btn-success">
+                <i class="fas fa-play"></i> Play Quiz
+            </a>
+            <a href="/feedback" class="btn">
+                <i class="fas fa-comment-dots"></i> Feedback
+            </a>
+        </footer>
+    </div>
+    
+    <script>
+        // Refresh leaderboard every 30 seconds
+        setInterval(() => {
+            location.reload();
+        }, 30000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate of Achievement - Emotion Quiz System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @media print {
+            body { margin: 0; padding: 0; background: white; }
+            .certificate-actions, .footer, .no-print { display: none !important; }
+            .certificate { margin: 0; padding: 0; border: none; box-shadow: none; }
+            .certificate-border { border: 15px solid #4f46e5 !important; }
+        }
+        
+        .certificate-border {
+            border: 20px solid #4f46e5;
+            padding: 50px;
+            background: white;
+            position: relative;
+        }
+        
+        .certificate-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .certificate-icon {
+            font-size: 3rem;
+            color: #4f46e5;
+        }
+        
+        .recipient-name {
+            font-size: 3.5rem;
+            font-weight: bold;
+            color: #1e293b;
+            margin: 30px 0;
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(90deg, #f0f9ff, #e0f2fe);
+            border-radius: 10px;
+        }
+        
+        .achievement-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }
+        
+        .detail-item {
+            text-align: center;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 10px;
+        }
+        
+        .detail-label {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+        
+        .detail-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #4f46e5;
+        }
+        
+        .certificate-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 2px solid #e2e8f0;
+        }
+        
+        .signature {
+            text-align: center;
+        }
+        
+        .signature-line {
+            width: 200px;
+            height: 1px;
+            background: #000;
+            margin: 0 auto;
+        }
+        
+        .official-seal {
+            position: absolute;
+            bottom: 50px;
+            right: 50px;
+            text-align: center;
+        }
+        
+        .seal-circle {
+            width: 100px;
+            height: 100px;
+            border: 3px solid #4f46e5;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+        }
+        
+        .seal-text {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class=\"header no-print slide-down\">
+            <h1 class=\"fade-in\" style=\"animation-delay: 0.1s;\">
+                <i class=\"fas fa-award bounce\"></i>
+                Certificate of Achievement
+                <i class=\"fas fa-graduation-cap pulse\" style=\"animation-delay: 0.2s;\"></i>
+            </h1>
+            <p class=\"fade-in\" style=\"animation-delay: 0.3s;\">Celebrate your success in Emotion Based Quiz System</p>
+        </header>
+        
+        <!-- Certificate Actions -->
+        <div class=\"card no-print card-entrance slide-up\" style=\"animation-delay: 0.4s;\">
+            <div style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: center;">
+                <button onclick="printCertificate()" class="btn">
+                    <i class="fas fa-print"></i> Print Certificate
+                </button>
+                <button onclick="downloadCertificate()" class="btn btn-success">
+                    <i class="fas fa-download"></i> Download as PDF
+                </button>
+                <button onclick="shareCertificate()" class="btn btn-warning">
+                    <i class="fas fa-share-alt"></i> Share
+                </button>
+                <a href="/leaderboard" class="btn btn-secondary">
+                    <i class="fas fa-trophy"></i> Leaderboard
+                </a>
+                <a href="/feedback" class="btn">
+                    <i class="fas fa-comment-dots"></i> Give Feedback
+                </a>
+                <a href="/" class="btn">
+                    <i class="fas fa-redo"></i> New Quiz
+                </a>
+            </div>
+        </div>
+        
+        <!-- Certificate -->
+        <div class=\"certificate\" id=\"certificateContent\" style=\"animation: zoomInSlow 0.8s ease-out;\">
+            <div class=\"certificate-border\" style=\"animation: flipInX 0.8s ease-out; animation-delay: 0.2s;\">
+                <!-- Certificate Header -->
+                <div class="certificate-header">
+                    <div class="certificate-icon">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h2>CERTIFICATE OF ACHIEVEMENT</h2>
+                    <div class="certificate-icon">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                </div>
+                
+                <!-- Award Text -->
+                <p style="font-size: 1.3rem; color: #475569; margin: 20px 0;">
+                    This certificate is proudly presented to
+                </p>
+                
+                <!-- Recipient Name -->
+                <div class="recipient-name">
+                    {{ username|upper }}
+                </div>
+                
+                <!-- Achievement Text -->
+                <p style="font-size: 1.2rem; color: #475569; max-width: 800px; margin: 30px auto; line-height: 1.6;">
+                    for successfully completing the <strong>Emotion Based Quiz</strong>
+                    with outstanding performance while experiencing
+                    <span style="color: {% if emotion == 'happy' %}#f59e0b{% elif emotion == 'sad' %}#3b82f6{% elif emotion == 'angry' %}#ef4444{% elif emotion == 'excited' %}#ec4899{% else %}#4f46e5{% endif %}; font-weight: bold;">
+                        {{ emotion|upper }}
+                    </span> emotion.
+                </p>
+                
+                <!-- Achievement Details -->
+                <div class="achievement-details">
+                    <div class="detail-item">
+                        <div class="detail-label">Emotion During Quiz</div>
+                        <div class="detail-value" style="color: {% if emotion == 'happy' %}#f59e0b{% elif emotion == 'sad' %}#3b82f6{% elif emotion == 'angry' %}#ef4444{% elif emotion == 'excited' %}#ec4899{% else %}#4f46e5{% endif %};">
+                            {{ emotion|capitalize }}
+                        </div>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Score Achieved</div>
+                        <div class="detail-value">{{ score }} Points</div>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Accuracy Rate</div>
+                        <div class="detail-value">
+                            {% if total > 0 %}
+                                {{ ((correct / total) * 100)|round|int }}%
+                            {% else %}
+                                100%
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Date of Achievement</div>
+                        <div class="detail-value">{{ date }}</div>
+                    </div>
+                </div>
+                
+                <!-- Performance Text -->
+                <p style="font-size: 1.1rem; color: #475569; max-width: 800px; margin: 30px auto; font-style: italic; line-height: 1.6;">
+                    "Your ability to achieve a score of {{ score }} points
+                    ({{ correct }} correct out of {{ total }} questions)
+                    while in {{ emotion }} emotional state demonstrates
+                    exceptional emotional intelligence and cognitive focus."
+                </p>
+                
+                <!-- Certificate Footer -->
+                <div class="certificate-footer">
+                    <div class="signature">
+                        <div class="signature-line"></div>
+                        <div style="font-size: 1.2rem; font-weight: bold; margin-top: 10px;">
+                            Quiz Coordinator
+                        </div>
+                        <div style="color: #64748b;">
+                            Emotion Based Quiz System
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.9rem; color: #64748b; margin-bottom: 10px;">
+                            <i class="fas fa-fingerprint"></i>
+                            Certificate ID: {{ certificate_id }}
+                        </div>
+                        <div style="color: #4f46e5; font-weight: bold;">
+                            VERIFIED ACHIEVEMENT
+                        </div>
+                    </div>
+                    
+                    <div class="signature">
+                        <div class="signature-line"></div>
+                        <div style="font-size: 1.2rem; font-weight: bold; margin-top: 10px;">
+                            Project Guide
+                        </div>
+                        <div style="color: #64748b;">
+                            Final Year Project
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Official Seal -->
+                <div class="official-seal">
+                    <div class="seal-circle" style="border-color: {% if emotion == 'happy' %}#f59e0b{% elif emotion == 'sad' %}#3b82f6{% elif emotion == 'angry' %}#ef4444{% elif emotion == 'excited' %}#ec4899{% else %}#4f46e5{% endif %};">
+                        <i class="fas fa-star" style="color: {% if emotion == 'happy' %}#f59e0b{% elif emotion == 'sad' %}#3b82f6{% elif emotion == 'angry' %}#ef4444{% elif emotion == 'excited' %}#ec4899{% else %}#4f46e5{% endif %};"></i>
+                    </div>
+                    <div class="seal-text">EMOTION QUIZ</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Certificate Info -->
+        <div class="card no-print">
+            <h2><i class="fas fa-info-circle"></i> About This Certificate</h2>
+            <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-top: 20px;">
+                <div style="flex: 1; min-width: 250px;">
+                    <h3><i class="fas fa-shield-alt"></i> Certificate Verification</h3>
+                    <p>This certificate can be verified using the Certificate ID:
+                        <strong>{{ certificate_id }}</strong></p>
+                </div>
+                <div style="flex: 1; min-width: 250px;">
+                    <h3><i class="fas fa-gift"></i> Achievement Unlocked</h3>
+                    <p>You've earned the
+                        <span style="color: {% if emotion == 'happy' %}#f59e0b{% elif emotion == 'sad' %}#3b82f6{% elif emotion == 'angry' %}#ef4444{% elif emotion == 'excited' %}#ec4899{% else %}#4f46e5{% endif %}; font-weight: bold;">
+                            {{ emotion|capitalize }} Master
+                        </span> badge!
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <footer class="footer no-print">
+            <p>This certificate is digitally generated and verifiable. Share your achievement!</p>
+            <div class="tech-stack">
+                <i class="fas fa-certificate" title="Certificate"></i>
+                <i class="fas fa-badge-check" title="Verified"></i>
+                <i class="fas fa-share-square" title="Shareable"></i>
+            </div>
+        </footer>
+    </div>
+    
+    <!-- Share Modal -->
+    <div id="shareModal" class="modal" style="display:none;">
+        <div class="card" style="max-width: 500px;">
+            <h2><i class="fas fa-share-alt"></i> Share Your Certificate</h2>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; margin: 25px 0;">
+                <button onclick="shareOnFacebook()" class="btn" style="flex-direction: column; padding: 20px;">
+                    <i class="fab fa-facebook" style="font-size: 2rem;"></i>
+                    Facebook
+                </button>
+                
+                <button onclick="shareOnTwitter()" class="btn" style="flex-direction: column; padding: 20px;">
+                    <i class="fab fa-twitter" style="font-size: 2rem;"></i>
+                    Twitter
+                </button>
+                
+                <button onclick="shareOnWhatsApp()" class="btn" style="flex-direction: column; padding: 20px;">
+                    <i class="fab fa-whatsapp" style="font-size: 2rem;"></i>
+                    WhatsApp
+                </button>
+                
+                <button onclick="copyCertificateLink()" class="btn" style="flex-direction: column; padding: 20px;">
+                    <i class="fas fa-link" style="font-size: 2rem;"></i>
+                    Copy Link
+                </button>
+            </div>
+            
+            <div style="display: flex; margin-top: 20px;">
+                <input type="text" id="certificateLink" value="{{ request.url }}" readonly
+                       style="flex: 1; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px 0 0 8px;">
+                <button onclick="copyLink()" class="btn" style="border-radius: 0 8px 8px 0;">
+                    <i class="fas fa-copy"></i> Copy
+                </button>
+            </div>
+            
+            <button onclick="closeShareModal()" class="btn btn-secondary" style="margin-top: 20px; width: 100%;">
+                Close
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        // Print certificate
+        function printCertificate() {
+            window.print();
+        }
+        
+        // Download as PDF (simulated)
+        function downloadCertificate() {
+            const link = document.createElement('a');
+            link.href = '#';
+            link.download = `Emotion_Quiz_Certificate_${'{{ username }}'}_${'{{ certificate_id }}'}.pdf`;
+            
+            // In real project, generate PDF server-side
+            alert('PDF download simulated. In production, this would generate a PDF file.\n\nTo implement: Use libraries like ReportLab or WeasyPrint server-side.');
+            
+            // For now, offer print as alternative
+            if (confirm('PDF generation requires server setup. Would you like to print instead?')) {
+                printCertificate();
+            }
+        }
+        
+        // Share certificate
+        function shareCertificate() {
+            document.getElementById('shareModal').style.display = 'flex';
+        }
+        
+        function closeShareModal() {
+            document.getElementById('shareModal').style.display = 'none';
+        }
+        
+        // Social sharing functions
+        function shareOnFacebook() {
+            const text = `I earned a certificate in Emotion Based Quiz with ${'{{ score }}'} points!`;
+            const url = encodeURIComponent(window.location.href);
+            window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${encodeURIComponent(text)}`, '_blank');
+        }
+        
+        function shareOnTwitter() {
+            const text = `Just earned my Emotion Quiz certificate with ${'{{ score }}'} points! Check it out!`;
+            const url = encodeURIComponent(window.location.href);
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${url}`, '_blank');
+        }
+        
+        function shareOnWhatsApp() {
+            const text = `I scored ${'{{ score }}'} points in Emotion Based Quiz and earned a certificate! ${window.location.href}`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        }
+        
+        function copyCertificateLink() {
+            document.getElementById('certificateLink').select();
+            document.execCommand('copy');
+            alert('Certificate link copied to clipboard!');
+        }
+        
+        function copyLink() {
+            copyCertificateLink();
+        }
+        
+        // Close modal when clicking outside
+        document.getElementById('shareModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('shareModal')) {
+                closeShareModal();
+            }
+        });
+        
+        // Add some effects
+        document.addEventListener('DOMContentLoaded', () => {
+            // Add sparkle effect for high scores
+            if ({{ score }} >= 40) {
+                addSparkleEffect();
+            }
+        });
+        
+        function addSparkleEffect() {
+            const colors = ['#f59e0b', '#fbbf24', '#fcd34d'];
+            
+            for (let i = 0; i < 20; i++) {
+                const sparkle = document.createElement('div');
+                sparkle.style.cssText = `
+                    position: absolute;
+                    width: 6px;
+                    height: 6px;
+                    background: ${colors[Math.floor(Math.random() * colors.length)]};
+                    border-radius: 50%;
+                    top: ${Math.random() * 100}%;
+                    left: ${Math.random() * 100}%;
+                    animation: sparkle ${1 + Math.random()}s infinite alternate;
+                    z-index: 1;
+                `;
+                
+                document.querySelector('.certificate-border').appendChild(sparkle);
+            }
+            
+            // Add CSS for animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes sparkle {
+                    0% { opacity: 0; transform: scale(0.5); }
+                    100% { opacity: 1; transform: scale(1.2); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    </script>
+</body>
+</html>

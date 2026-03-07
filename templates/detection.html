@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion Detection - EmotionQuiz</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .image-upload-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            padding: 30px;
+        }
+
+        .upload-box {
+            border: 3px dashed #ff006e;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            background: #ffe0f0;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .upload-box:hover {
+            background: #ffd0e8;
+            transform: scale(1.02);
+            box-shadow: 0 10px 30px rgba(255, 0, 110, 0.3);
+        }
+
+        .upload-box i {
+            font-size: 3rem;
+            color: #ff006e;
+            margin-bottom: 15px;
+        }
+
+        .upload-box p {
+            color: #666;
+            font-size: 1.1rem;
+            margin: 10px 0;
+        }
+
+        #imageInput {
+            display: none;
+        }
+
+        .image-preview {
+            max-width: 400px;
+            max-height: 400px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(255, 0, 110, 0.3);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card card-entrance">
+            <div class="header slide-down">
+                <h1><i class="fas fa-image bounce"></i> Emotion Detection</h1>
+                <p class="subtitle fade-in" style="animation-delay: 0.2s;">Upload a photo and we'll detect your emotion to create a personalized quiz!</p>
+            </div>
+
+            <div class="image-upload-section">
+                <!-- Upload Box -->
+                <div class="upload-box zoom-slow" id="uploadBox" style="transition: all 0.3s;">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Click to upload or drag & drop</p>
+                    <small style="color: #999;">PNG, JPG up to 10MB</small>
+                </div>
+
+                <!-- Image Preview -->
+                <div id="imagePreviewContainer" style="display: none;">
+                    <img id="imagePreview" class="image-preview" src="" alt="Preview">
+                </div>
+
+                <!-- Emotion Result -->
+                <div id="emotionResult" style="display: none; width: 100%;">
+                    <h2 style="text-align: center; color: #ff006e; margin-bottom: 20px;">Detected Emotion:</h2>
+                    <div id="emotionDisplay" class="emotion-display">Happy 😊</div>
+                    <div id="confidenceText" class="subtitle" style="text-align: center; margin-top: 15px;">Confidence: 85%</div>
+                </div>
+
+                <!-- Loading -->
+                <div id="loading" style="display: none; text-align: center;">
+                    <div class="loading"></div>
+                    <p>Analyzing your emotion...</p>
+                </div>
+
+                <!-- Buttons -->
+                <div class="button-group" id="buttonGroup" style="display: none;">
+                    <button id="startQuizBtn" class="btn btn-success slide-up" style="flex: 1;">
+                        <i class="fas fa-play-circle"></i> Start Quiz
+                    </button>
+                    <button id="uploadAgainBtn" class="btn btn-secondary slide-up stagger-1" style="flex: 1; animation-delay: 0.1s;">
+                        <i class="fas fa-redo"></i> Upload Again
+                    </button>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="{{ url_for('home') }}" class="btn btn-secondary">
+                    <i class="fas fa-home"></i> Back to Home
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="imageInput" accept="image/*">
+
+    <script>
+        const uploadBox = document.getElementById('uploadBox');
+        const imageInput = document.getElementById('imageInput');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        const imagePreview = document.getElementById('imagePreview');
+        const emotionResult = document.getElementById('emotionResult');
+        const emotionDisplay = document.getElementById('emotionDisplay');
+        const confidenceText = document.getElementById('confidenceText');
+        const loading = document.getElementById('loading');
+        const startQuizBtn = document.getElementById('startQuizBtn');
+        const uploadAgainBtn = document.getElementById('uploadAgainBtn');
+        const buttonGroup = document.getElementById('buttonGroup');
+
+        let selectedImage = null;
+        let detectedEmotion = null;
+
+        // Emotion emoji mapping
+        const emotionEmojis = {
+            'happy': '😊',
+            'sad': '😢',
+            'angry': '😠',
+            'surprise': '😲',
+            'fear': '😨',
+            'disgust': '🤢',
+            'neutral': '😐',
+            'excited': '🤩'
+        };
+
+        // Emotion colors
+        const emotionColors = {
+            'happy': '#ff006e',
+            'sad': '#36d1dc',
+            'angry': '#ff6b6b',
+            'surprise': '#f093fb',
+            'fear': '#4facfe',
+            'disgust': '#43e97b',
+            'neutral': '#a3bded',
+            'excited': '#f5576c'
+        };
+
+        // Upload box click
+        uploadBox.addEventListener('click', () => {
+            imageInput.click();
+        });
+
+        // Drag and drop
+        uploadBox.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadBox.style.background = '#ffd0e8';
+        });
+
+        uploadBox.addEventListener('dragleave', () => {
+            uploadBox.style.background = '#ffe0f0';
+        });
+
+        uploadBox.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadBox.style.background = '#ffe0f0';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleImageSelect(files[0]);
+            }
+        });
+
+        // File input change
+        imageInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleImageSelect(e.target.files[0]);
+            }
+        });
+
+        // Handle image selection
+        function handleImageSelect(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('Please select an image file');
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                alert('Image size should be less than 10MB');
+                return;
+            }
+
+            selectedImage = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                imagePreviewContainer.style.display = 'block';
+                uploadBox.style.display = 'none';
+                buttonGroup.style.display = 'none';
+                emotionResult.style.display = 'none';
+                
+                // Auto-detect emotion after showing preview
+                setTimeout(detectEmotionAuto, 500);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Auto-detect emotion
+        async function detectEmotionAuto() {
+            if (!selectedImage) {
+                alert('Please select an image first');
+                return;
+            }
+
+            loading.style.display = 'block';
+
+            const formData = new FormData();
+            formData.append('image', selectedImage);
+
+            try {
+                const response = await fetch('/detect_emotion', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    detectedEmotion = result.emotion || 'happy';
+                    const confidence = result.confidence || 0.85;
+
+                    // Display result
+                    emotionDisplay.textContent = `${detectedEmotion.charAt(0).toUpperCase() + detectedEmotion.slice(1)} ${emotionEmojis[detectedEmotion] || '😊'}`;
+                    emotionDisplay.style.background = `linear-gradient(135deg, ${emotionColors[detectedEmotion] || '#ff006e'}, ${emotionColors[detectedEmotion] || '#ff006e'}99)`;
+                    confidenceText.textContent = `Confidence: ${(confidence * 100).toFixed(1)}%`;
+
+                    emotionResult.style.display = 'block';
+                    buttonGroup.style.display = 'flex';
+
+                    // Create confetti effect
+                    createConfetti(emotionColors[detectedEmotion] || '#ff006e');
+                } else {
+                    alert(result.message || 'Error detecting emotion. Please try again.');
+                    // Reset on error
+                    uploadAgainBtn.click();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error detecting emotion. Please try again.');
+                // Reset on error
+                uploadAgainBtn.click();
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        // Start quiz button
+        startQuizBtn.addEventListener('click', () => {
+            window.location.href = `/start_quiz?emotion=${detectedEmotion}`;
+        });
+
+        // Upload again button
+        uploadAgainBtn.addEventListener('click', () => {
+            selectedImage = null;
+            detectedEmotion = null;
+            imagePreviewContainer.style.display = 'none';
+            uploadBox.style.display = 'block';
+            buttonGroup.style.display = 'none';
+            emotionResult.style.display = 'none';
+            imageInput.value = '';
+        });
+
+        // Confetti effect
+        function createConfetti(color) {
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.backgroundColor = color;
+                confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+                confetti.style.width = Math.random() * 10 + 5 + 'px';
+                confetti.style.height = Math.random() * 10 + 5 + 'px';
+
+                document.body.appendChild(confetti);
+
+                const animation = confetti.animate([
+                    { top: '-10px', transform: `rotate(0deg) scale(1)` },
+                    { top: '100vh', transform: `rotate(${Math.random() * 720}deg) scale(0)` }
+                ], {
+                    duration: Math.random() * 3000 + 2000,
+                    easing: 'cubic-bezier(0.215, 0.610, 0.355, 1)'
+                });
+
+                animation.onfinish = () => confetti.remove();
+            }
+        }
+    </script>
+</body>
+</html>

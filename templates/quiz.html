@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion Quiz - {{ emotion|capitalize }} Mode</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Quiz Header -->
+        <header class="quiz-header slide-down">
+            <div class="slide-left" style="animation-delay: 0.1s;">
+                <h2><i class="fas fa-gamepad bounce"></i> Emotion Quiz</h2>
+                <p>Playing in <strong>{{ emotion }}</strong> mode</p>
+            </div>
+            
+            <div class="quiz-info fade-in" style="animation-delay: 0.2s;">
+                <div class="info-item">
+                    <i class="fas fa-user"></i>
+                    <span id="username">{{ username }}</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-smile"></i>
+                    <span id="emotionDisplay">{{ emotion }}</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-clock"></i>
+                    Time: <span id="timer">02:00</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-star"></i>
+                    Score: <span id="scoreDisplay">0</span>
+                </div>
+            </div>
+        </header>
+        
+        <div class="quiz-container">
+            <!-- Progress -->
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+            </div>
+            <div class="question-counter">
+                Question <span id="currentQuestion">1</span> of <span id="totalQuestions">5</span>
+            </div>
+            
+            <!-- Question Card -->
+            <div class="question-container card-entrance" style="animation-delay: 0.3s;">
+                <div id="questionText" class="question-text fade-in" style="animation-delay: 0.4s;">
+                    Loading question...
+                </div>
+                
+                <div class="options-container" id="optionsContainer">
+                    <!-- Options will be loaded by JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <div class="quiz-navigation fade-in" style="animation-delay: 0.5s;">
+                <button id="prevBtn" class="btn btn-secondary" disabled>
+                    <i class="fas fa-arrow-left"></i> Previous
+                </button>
+                <button id="nextBtn" class="btn">
+                    Next <i class="fas fa-arrow-right"></i>
+                </button>
+                <button id="submitBtn" class="btn btn-success" style="display:none;">
+                    <i class="fas fa-paper-plane"></i> Submit Quiz
+                </button>
+            </div>
+            
+            <!-- Emotion Status -->
+            <div class="card emotion-status card-entrance slide-up stagger-2" style="animation-delay: 0.6s;">
+                <div style="display:flex; align-items:center; gap:20px;">
+                    <div style="font-size: 3rem; animation: heartbeat 1.3s infinite;">
+                        {% if emotion == 'happy' %}😊
+                        {% elif emotion == 'sad' %}😢
+                        {% elif emotion == 'angry' %}😠
+                        {% elif emotion == 'excited' %}🤩
+                        {% else %}😐{% endif %}
+                    </div>
+                    <div>
+                        <h3>Playing with <span style="color:#7e22ce;">{{ emotion }}</span> emotion!</h3>
+                        <p>Questions are tailored to match your current emotional state for better engagement.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <footer class="footer">
+            <a href="/" class="btn btn-secondary">
+                <i class="fas fa-home"></i> Home
+            </a>
+            <a href="/leaderboard" class="btn">
+                <i class="fas fa-trophy"></i> Leaderboard
+            </a>
+            <a href="/feedback" class="btn btn-warning">
+                <i class="fas fa-comment-dots"></i> Feedback
+            </a>
+            <button onclick="confirmExit()" class="btn btn-danger">
+                <i class="fas fa-sign-out-alt"></i> Exit Quiz
+            </button>
+        </footer>
+    </div>
+    
+    <!-- Result Modal -->
+    <div id="resultModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+        <div class="card" style="max-width:500px; width:90%;">
+            <h2><i class="fas fa-award"></i> Quiz Completed!</h2>
+            
+            <div class="result-details">
+                <div class="result-card">
+                    <h3>Your Score</h3>
+                    <div class="result-value" id="finalScore">0</div>
+                </div>
+                
+                <div class="result-card">
+                    <h3>Correct Answers</h3>
+                    <div class="result-value" id="finalCorrect">0</div>
+                </div>
+                
+                <div class="result-card">
+                    <h3>Your Rank</h3>
+                    <div class="result-value" id="finalRank">#0</div>
+                </div>
+            </div>
+            
+            <div style="display:flex; flex-direction:column; gap:15px; margin-top:30px;">
+                <a href="/result" class="btn btn-success">
+                    <i class="fas fa-chart-bar"></i> View Detailed Results
+                </a>
+                <a href="/certificate" class="btn btn-warning">
+                    <i class="fas fa-certificate"></i> Get Certificate
+                </a>
+                <a href="/leaderboard" class="btn">
+                    <i class="fas fa-trophy"></i> View Leaderboard
+                </a>
+                <a href="/feedback" class="btn">
+                    <i class="fas fa-comment-dots"></i> Give Feedback
+                </a>
+                <a href="/" class="btn btn-secondary">
+                    <i class="fas fa-redo"></i> Play Again
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let questions = [];
+        let currentQuestionIndex = 0;
+        let userAnswers = [];
+        let score = 0;
+        let timer;
+        let timeLeft = 120;
+        let quizCompleted = false;
+        
+        const questionText = document.getElementById('questionText');
+        const optionsContainer = document.getElementById('optionsContainer');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        const progressBar = document.getElementById('progressBar');
+        const currentQuestionSpan = document.getElementById('currentQuestion');
+        const totalQuestionsSpan = document.getElementById('totalQuestions');
+        const timerDisplay = document.getElementById('timer');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const resultModal = document.getElementById('resultModal');
+        
+        // Initialize quiz
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadQuestions();
+            startTimer();
+            displayQuestion();
+        });
+        
+        // Load questions
+        async function loadQuestions() {
+            try {
+                const emotion = '{{ emotion }}';
+                const response = await fetch(`/get_questions/${emotion}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    questions = result.questions;
+                    totalQuestionsSpan.textContent = questions.length;
+                    userAnswers = new Array(questions.length).fill(null);
+                } else {
+                    alert('Failed to load questions. Using sample questions.');
+                    questions = getSampleQuestions();
+                    totalQuestionsSpan.textContent = questions.length;
+                    userAnswers = new Array(questions.length).fill(null);
+                }
+            } catch (error) {
+                console.error('Error loading questions:', error);
+                questions = getSampleQuestions();
+                totalQuestionsSpan.textContent = questions.length;
+                userAnswers = new Array(questions.length).fill(null);
+            }
+        }
+        
+        // Display question
+        function displayQuestion() {
+            if (questions.length === 0) return;
+            
+            const question = questions[currentQuestionIndex];
+            questionText.textContent = `${currentQuestionIndex + 1}. ${question.question}`;
+            
+            optionsContainer.innerHTML = '';
+            
+            question.options.forEach((option, index) => {
+                const optionElement = document.createElement('div');
+                optionElement.className = `option ${userAnswers[currentQuestionIndex] === index + 1 ? 'selected' : ''}`;
+                optionElement.innerHTML = `
+                    <div class="option-number">${String.fromCharCode(65 + index)}</div>
+                    <div class="option-text">${option}</div>
+                `;
+                
+                optionElement.addEventListener('click', () => selectOption(index + 1));
+                optionsContainer.appendChild(optionElement);
+            });
+            
+            const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+            progressBar.style.width = `${progress}%`;
+            currentQuestionSpan.textContent = currentQuestionIndex + 1;
+            
+            prevBtn.disabled = currentQuestionIndex === 0;
+            nextBtn.disabled = currentQuestionIndex === questions.length - 1;
+            
+            if (currentQuestionIndex === questions.length - 1) {
+                submitBtn.style.display = 'inline-flex';
+                nextBtn.style.display = 'none';
+            } else {
+                submitBtn.style.display = 'none';
+                nextBtn.style.display = 'inline-flex';
+            }
+        }
+        
+        // Select option
+        function selectOption(optionIndex) {
+            userAnswers[currentQuestionIndex] = optionIndex;
+            displayQuestion();
+            calculateCurrentScore();
+        }
+        
+        // Calculate score
+        function calculateCurrentScore() {
+            score = 0;
+            questions.forEach((question, index) => {
+                if (userAnswers[index] === question.correct_answer) {
+                    score += question.points || 10;
+                }
+            });
+            scoreDisplay.textContent = score;
+        }
+        
+        // Navigation
+        prevBtn.addEventListener('click', () => {
+            if (currentQuestionIndex > 0) {
+                currentQuestionIndex--;
+                displayQuestion();
+            }
+        });
+        
+        nextBtn.addEventListener('click', () => {
+            if (currentQuestionIndex < questions.length - 1) {
+                currentQuestionIndex++;
+                displayQuestion();
+            }
+        });
+        
+        // Submit quiz
+        submitBtn.addEventListener('click', async () => {
+            if (quizCompleted) return;
+            
+            clearInterval(timer);
+            quizCompleted = true;
+            
+            const answers = [];
+            questions.forEach((question, index) => {
+                if (userAnswers[index] !== null) {
+                    answers.push({
+                        question_id: question.id,
+                        selected_option: userAnswers[index]
+                    });
+                }
+            });
+            
+            try {
+                const response = await fetch('/submit_quiz', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        answers: answers,
+                        time_taken: 120 - timeLeft
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('finalScore').textContent = result.score;
+                    document.getElementById('finalCorrect').textContent = result.correct;
+                    document.getElementById('finalRank').textContent = `#${result.rank}`;
+                    resultModal.style.display = 'flex';
+                } else {
+                    alert('Failed to submit quiz: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error submitting quiz:', error);
+                alert('Network error. Please check your connection.');
+            }
+        });
+        
+        // Timer
+        function startTimer() {
+            updateTimerDisplay();
+            
+            timer = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay();
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    if (!quizCompleted) {
+                        alert('Time is up! Submitting your quiz...');
+                        submitBtn.click();
+                    }
+                }
+            }, 1000);
+        }
+        
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (timeLeft <= 30) {
+                timerDisplay.style.color = '#ef4444';
+            }
+        }
+        
+        // Helper functions
+        function getSampleQuestions() {
+            return [
+                {
+                    id: 1,
+                    question: "Which activity makes you feel most joyful?",
+                    options: ["Listening to music", "Watching comedy", "Eating favorite food", "Meeting friends"],
+                    correct_answer: 3,
+                    points: 10
+                },
+                {
+                    id: 2,
+                    question: "What color represents happiness for you?",
+                    options: ["Blue", "Yellow", "Red", "Green"],
+                    correct_answer: 2,
+                    points: 10
+                }
+            ];
+        }
+        
+        function confirmExit() {
+            if (confirm('Are you sure you want to exit? Your progress will be lost.')) {
+                window.location.href = '/';
+            }
+        }
+        
+        // Close modal when clicking outside
+        resultModal.addEventListener('click', (e) => {
+            if (e.target === resultModal) {
+                resultModal.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

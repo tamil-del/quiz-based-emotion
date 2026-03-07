@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="description" content="Detect your emotion and take a personalized quiz with instant results, leaderboards, and certificates">
+    <title>Emotion Quiz System - Home</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%236366f1' width='100' height='100'/><text x='50' y='60' font-size='60' font-weight='bold' fill='white' text-anchor='middle'>EQ</text></svg>">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%236366f1' width='192' height='192'/><text x='96' y='110' font-size='80' font-weight='bold' fill='white' text-anchor='middle'>EQ</text></svg>">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header slide-down">
+            <h1>
+                <i class="fas fa-brain bounce"></i>
+                <span class="text-gradient">Emotion Based Quiz System</span>
+                <i class="fas fa-heart pulse" style="color: #ec4899;"></i>
+            </h1>
+            <p class="fade-in" style="animation-delay: 0.2s;">Detect your emotion and take a personalized quiz! Get instant results, compete on leaderboard, and earn certificates.</p>
+        </header>
+        <div class="main-content">
+            <!-- Login/Register Card -->
+            <div class="card card-entrance" id="authCard">
+                <h2><i class="fas fa-user"></i> Welcome to Emotion Quiz</h2>
+                
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="showTab('login')">Login</button>
+                    <button class="tab-btn" onclick="showTab('register')">Register</button>
+                </div>
+                
+                <!-- Login Form -->
+                <form id="loginForm" class="tab-content active">
+                    <div class="form-group">
+                        <label for="loginUsername"><i class="fas fa-user"></i> Username</label>
+                        <input type="text" id="loginUsername" placeholder="Enter your username" required>
+                    </div>
+                    
+                    <button type="submit" class="btn">
+                        <i class="fas fa-sign-in-alt"></i> Login & Start Quiz
+                    </button>
+                    
+                    <p class="info-text">
+                        <i class="fas fa-info-circle"></i>
+                        New user? Click Register tab to create account
+                    </p>
+                </form>
+                
+                <!-- Register Form -->
+                <form id="registerForm" class="tab-content">
+                    <div class="form-group">
+                        <label for="regUsername"><i class="fas fa-user"></i> Username</label>
+                        <input type="text" id="regUsername" placeholder="Choose a username" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="regEmail"><i class="fas fa-envelope"></i> Email</label>
+                        <input type="email" id="regEmail" placeholder="Enter your email" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-user-plus"></i> Register & Continue
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Emotion Detection Card (hidden initially) -->
+            <div class="card card-entrance" id="emotionCard" style="display:none;">
+                <h2><i class="fas fa-image"></i> Detect Emotion from Image</h2>
+                <p style="color: #666; margin-bottom: 20px;">Upload or drag & drop an image to detect your emotion</p>
+                
+                <!-- Image Upload Box -->
+                <div class="upload-box" id="uploadBox" style="border: 3px dashed #ff006e; padding: 40px; border-radius: 15px; text-align: center; cursor: pointer; background: #fff9fc; margin-bottom: 20px;">
+                    <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: #ff006e; margin-bottom: 15px;"></i>
+                    <p style="font-size: 1.1rem; color: #333; margin: 10px 0;">Click to upload or drag & drop</p>
+                    <p style="color: #999; font-size: 0.9rem;">PNG, JPG, GIF up to 10MB</p>
+                </div>
+                
+                <!-- Image Preview -->
+                <img id="imagePreview" class="image-preview" src="" alt="Preview" style="display: none; max-width: 100%; border-radius: 10px; margin-bottom: 20px; max-height: 400px;">
+                
+                <!-- Emotion Result Display -->
+                <div class="emotion-display" id="emotionDisplay" style="display: none; text-align: center; padding: 30px; background: #fff9fc; border-radius: 10px; margin-bottom: 20px;">
+                    <div style="font-size: 4rem; margin-bottom: 15px;" id="emotionEmoji">😊</div>
+                    <div style="font-size: 1.5rem; color: #ff006e; margin-bottom: 10px; font-weight: bold;" id="emotionName">Happy</div>
+                    <div style="font-size: 1rem; color: #666;" id="emotionConfidence">Confidence: 85%</div>
+                </div>
+                
+                <!-- Loading indicator -->
+                <div id="loadingIndicator" style="display: none; text-align: center; padding: 20px;">
+                    <div style="border: 4px solid #f0f0f0; border-top: 4px solid #ff006e; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+                    <p style="color: #666; margin-top: 10px;">Detecting emotion...</p>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                    <button id="startQuizBtn" class="btn btn-warning" disabled style="font-size: 1rem; padding: 12px 30px;">
+                        <i class="fas fa-play"></i> Start Quiz
+                    </button>
+                    <button id="uploadAgainBtn" class="btn" style="font-size: 1rem; padding: 12px 30px; display: none;">
+                        <i class="fas fa-image"></i> Upload Another Image
+                    </button>
+                </div>
+                
+                <style>
+                    @keyframes spin {
+                        to { transform: rotate(360deg); }
+                    }
+                    .upload-box:hover {
+                        background: #ffe0f0;
+                        border-color: #ff006e;
+                    }
+                </style>
+            </div>
+            
+            <!-- Quick Links -->
+            <div class="card card-entrance stagger-3" style="animation-delay: 0.3s;">
+                <h2><i class="fas fa-bolt"></i> Quick Actions</h2>
+                <div class="quick-actions">
+                    <a href="/leaderboard" class="btn btn-secondary">
+                        <i class="fas fa-trophy"></i> View Leaderboard
+                    </a>
+                    <a href="/feedback" class="btn">
+                        <i class="fas fa-comment-dots"></i> Give Feedback
+                    </a>
+                    <button onclick="useDemoAccount()" class="btn">
+                        <i class="fas fa-user-secret"></i> Use Demo Account
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Project Info -->
+            <div class="card card-entrance stagger-4" style="animation-delay: 0.4s;">
+                <h2><i class="fas fa-info-circle"></i> About This Project</h2>
+                <div class="project-info">
+                    <p><strong>Emotion Based Quiz System</strong> is a final year project that:</p>
+                    <ul>
+                        <li><i class="fas fa-check-circle"></i> Detects user emotion via webcam</li>
+                        <li><i class="fas fa-check-circle"></i> Provides personalized quiz questions</li>
+                        <li><i class="fas fa-check-circle"></i> Tracks scores and performance</li>
+                        <li><i class="fas fa-check-circle"></i> Generates achievement certificates</li>
+                        <li><i class="fas fa-check-circle"></i> Shows competitive leaderboards</li>
+                    </ul>
+                    <p><i class="fas fa-graduation-cap"></i> <strong>Technology Stack:</strong> Python Flask, SQLite, HTML/CSS/JS</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Final Year Project | Emotion Based Quiz System | Developed with ❤️</p>
+            <div class="tech-stack">
+                <i class="fab fa-python" title="Python"></i>
+                <i class="fab fa-html5" title="HTML5"></i>
+                <i class="fab fa-css3-alt" title="CSS3"></i>
+                <i class="fab fa-js" title="JavaScript"></i>
+                <i class="fas fa-database" title="SQLite"></i>
+            </div>
+        </footer>
+    </div>
+    
+    <script>
+        // Tab switching
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            document.getElementById(tabName + 'Form').classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        // Alert system
+        function showAlert(type, message) {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' :
+                                  type === 'error' ? 'exclamation-circle' :
+                                  type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+                ${message}
+            `;
+            
+            document.body.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+        
+        // Login Form
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value;
+            
+            if (!username.trim()) {
+                showAlert('error', 'Please enter username');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `username=${encodeURIComponent(username)}`
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('authCard').style.display = 'none';
+                    document.getElementById('emotionCard').style.display = 'block';
+                    showAlert('success', `Welcome back, ${result.username}!`);
+                    // Initialize upload handlers after showing card
+                    setTimeout(initializeImageUpload, 100);
+                } else {
+                    showAlert('error', result.message);
+                }
+            } catch (error) {
+                showAlert('error', 'Server connection error!');
+                console.error(error);
+            }
+        });
+        
+        // Register Form
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('regUsername').value;
+            const email = document.getElementById('regEmail').value;
+            
+            if (!username.trim() || !email.trim()) {
+                showAlert('error', 'Please fill all fields');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `username=${encodeURIComponent(username)}&email=${encodeURIComponent(email)}`
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('authCard').style.display = 'none';
+                    document.getElementById('emotionCard').style.display = 'block';
+                    showAlert('success', `Registration successful, ${result.username}!`);
+                    // Initialize upload handlers after showing card
+                    setTimeout(initializeImageUpload, 100);
+                } else {
+                    showAlert('error', result.message);
+                }
+            } catch (error) {
+                showAlert('error', 'Server connection error!');
+                console.error(error);
+            }
+        });
+        
+        // ==== IMAGE UPLOAD HANDLING ====
+        let selectedImage = null;
+        let detectedEmotion = null;
+        
+        // Upload box drag and drop - Initialize with defensive checks
+        function initializeImageUpload() {
+            const uploadBox = document.getElementById('uploadBox');
+            const imagePreview = document.getElementById('imagePreview');
+            const emotionDisplay = document.getElementById('emotionDisplay');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const startQuizBtn = document.getElementById('startQuizBtn');
+            const uploadAgainBtn = document.getElementById('uploadAgainBtn');
+            
+            if (!uploadBox) {
+                console.warn('Upload box element not found');
+                return;
+            }
+            
+            // Drag and drop events
+            uploadBox.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadBox.style.background = '#ffe0f0';
+        });
+        
+        uploadBox.addEventListener('dragleave', () => {
+            uploadBox.style.background = '#fff9fc';
+        });
+        
+        uploadBox.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadBox.style.background = '#fff9fc';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleImageSelect(files[0]);
+            }
+        });
+        
+        // Click to upload
+        uploadBox.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = (e) => {
+                if (e.target.files.length > 0) {
+                    handleImageSelect(e.target.files[0]);
+                }
+            };
+            input.click();
+        });
+        
+        // Handle image selection
+        function handleImageSelect(file) {
+            if (!file.type.startsWith('image/')) {
+                showAlert('error', 'Please select an image file');
+                return;
+            }
+            
+            if (file.size > 10 * 1024 * 1024) {
+                showAlert('error', 'Image size must be less than 10MB');
+                return;
+            }
+            
+            selectedImage = file;
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                imagePreview.style.display = 'block';
+                uploadBox.style.display = 'none';
+                
+                // Auto-detect after 500ms
+                setTimeout(detectEmotionAuto, 500);
+            };
+            
+            reader.readAsDataURL(file);
+        }
+        
+        // Auto-detect emotion from image
+        async function detectEmotionAuto() {
+            if (!selectedImage) return;
+            
+            loadingIndicator.style.display = 'block';
+            emotionDisplay.style.display = 'none';
+            
+            try {
+                const formData = new FormData();
+                formData.append('image', selectedImage);
+                
+                const response = await fetch('/detect_emotion', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    detectedEmotion = result.emotion;
+                    displayEmotionResult(result.emotion, result.confidence || 85);
+                    showAlert('success', 'Emotion detected successfully!');
+                } else {
+                    loadingIndicator.style.display = 'none';
+                    emotionDisplay.style.display = 'block';
+                    emotionDisplay.innerHTML = `<div style="color: #ff006e; padding: 20px;"><i class="fas fa-exclamation-triangle"></i> ${result.message}</div>`;
+                    showAlert('error', result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                loadingIndicator.style.display = 'none';
+                emotionDisplay.style.display = 'block';
+                emotionDisplay.innerHTML = `<div style="color: #ff006e; padding: 20px;"><i class="fas fa-exclamation-triangle"></i> Detection error</div>`;
+                showAlert('error', 'Failed to detect emotion');
+            }
+        }
+        
+        // Display emotion result
+        function displayEmotionResult(emotion, confidence) {
+            const emojis = {
+                'happy': '😊',
+                'sad': '😢',
+                'angry': '😠',
+                'neutral': '😐',
+                'excited': '🤩'
+            };
+            
+            loadingIndicator.style.display = 'none';
+            emotionDisplay.style.display = 'block';
+            
+            document.getElementById('emotionEmoji').textContent = emojis[emotion] || '😊';
+            document.getElementById('emotionName').textContent = emotion.charAt(0).toUpperCase() + emotion.slice(1);
+            document.getElementById('emotionConfidence').textContent = `Confidence: ${confidence}%`;
+            
+            startQuizBtn.disabled = false;
+            uploadAgainBtn.style.display = 'inline-flex';
+            
+            // Confetti animation
+            createConfetti();
+        }
+        
+        // Upload another image
+        uploadAgainBtn.addEventListener('click', () => {
+            selectedImage = null;
+            detectedEmotion = null;
+            imagePreview.style.display = 'none';
+            emotionDisplay.style.display = 'none';
+            uploadBox.style.display = 'block';
+            startQuizBtn.disabled = true;
+            uploadAgainBtn.style.display = 'none';
+            document.getElementById('uploadBox').click();
+        });
+        
+        // Start Quiz
+        startQuizBtn.addEventListener('click', () => {
+            if (!detectedEmotion) {
+                showAlert('error', 'Please detect emotion first!');
+                return;
+            }
+            window.location.href = `/start_quiz?emotion=${detectedEmotion}`;
+            });
+        } // End of initializeImageUpload function
+        
+        // Confetti animation
+        function createConfetti() {
+            for (let i = 0; i < 30; i++) {
+                const confetti = document.createElement('div');
+                confetti.style.cssText = `
+                    position: fixed;
+                    width: 10px;
+                    height: 10px;
+                    background: ${['#ff006e', '#8338ec', '#ff6b6b', '#4ecdc4'][Math.floor(Math.random() * 4)]};
+                    left: ${Math.random() * 100}vw;
+                    top: -10px;
+                    border-radius: 50%;
+                    pointer-events: none;
+                    z-index: 1000;
+                `;
+                document.body.appendChild(confetti);
+                
+                const duration = Math.random() * 2 + 2;
+                confetti.animate([
+                    { transform: `translateY(0) rotate(0deg)`, opacity: 1 },
+                    { transform: `translateY(${Math.random() * 200 + 100}vh) rotate(${Math.random() * 360}deg)`, opacity: 0 }
+                ], {
+                    duration: duration * 1000,
+                    easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+                });
+                
+                setTimeout(() => confetti.remove(), duration * 1000);
+            }
+        }
+        
+        // Old camera functions completely replaced with image upload
+        
+        function useDemoAccount() {
+            document.getElementById('loginUsername').value = 'demo_user';
+            showAlert('info', 'Demo username filled. Click "Login & Start Quiz"');
+        }
+        
+        // Auto-focus on first input
+        document.getElementById('loginUsername').focus();
+    </script>
+    
+    <!-- Service Worker Registration for PWA -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registered successfully:', registration);
+                    })
+                    .catch(error => {
+                        console.log('Service Worker registration failed:', error);
+                    });
+            });
+        }
+        
+        // Install prompt handling
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            // Show install button if desired
+            console.log('App can be installed');
+        });
+    </script>
+</body>
+</html>
