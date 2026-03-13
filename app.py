@@ -1,44 +1,26 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file
-from flask_mail import Mail, Message
-from models import db, User, Question, Result, Feedback
+
+# Flask-Mail is an optional dependency; if it's not installed we
+# fall back to a no-op so that the rest of the app continues to work.
+try:
+    from flask_mail import Mail, Message
+except ImportError:
+    Mail = None
+    Message = None
+
+import sqlite3
 import json
 import os
 from datetime import datetime
 import random
 import base64
 
-app = Flask(__name__)
-app.secret_key = 'emotion-quiz-secret-key-2024'
+# in-memory list of sample questions with id
+QUESTIONS = []
 
-# Session configuration
-app.config['SESSION_TYPE'] = 'filesystem'
-app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
-
-# Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///quiz.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db.init_app(app)
-
-# Mail configuration
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'your-email@gmail.com'  # Change this
-app.config['MAIL_PASSWORD'] = 'your-password'  # Change this
-mail = Mail(app)
-
-# Initialize database and insert sample questions
-def init_db():
-    with app.app_context():
-        db.create_all()
-        
-        # Check if questions already exist
-        if Question.query.first() is None:
-            insert_sample_questions()
-            db.session.commit()
-
-def insert_sample_questions():
-    sample_questions = [
+def create_sample_questions():
+    global QUESTIONS
+    sample = [
         ('Which activity makes you feel most joyful?', 'Listening to music', 'Watching comedy', 'Eating favorite food', 'Meeting friends', 3, 'happy', 10),
         ('What color represents happiness for you?', 'Blue', 'Yellow', 'Red', 'Green', 2, 'happy', 10),
         ('What is the best way to celebrate success?', 'Party with friends', 'Buy yourself a gift', 'Relax at home', 'Plan next goal', 1, 'happy', 10),
@@ -55,19 +37,85 @@ def insert_sample_questions():
         ('How do you express excitement?', 'Jumping', 'Smiling', 'Talking fast', 'All of the above', 4, 'excited', 10),
         ('What triggers excitement easily?', 'Unexpected gifts', 'Travel plans', 'Meeting idols', 'All of these', 4, 'excited', 10)
     ]
-    
-    for question_data in sample_questions:
-        question = Question(
-            question=question_data[0],
-            option1=question_data[1],
-            option2=question_data[2],
-            option3=question_data[3],
-            option4=question_data[4],
-            correct_answer=question_data[5],
-            emotion=question_data[6],
-            points=question_data[7]
-        )
-        db.session.add(question)
+    QUESTIONS = []
+    for idx, q in enumerate(sample, start=1):
+        QUESTIONS.append({
+            'id': idx,
+            'question': q[0],
+            'options': [q[1], q[2], q[3], q[4]],
+            'correct_answer': q[5],
+            'emotion': q[6],
+            'points': q[7]
+        })
+
+create_sample_questions()
+
+app = Flask(__name__)
+app.secret_key = 'emotion-quiz-secret-key-2024'
+
+# Session configuration
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
+
+# Mail configuration
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'your-email@gmail.com'  # Change this
+app.config['MAIL_PASSWORD'] = 'your-password'  # Change this
+mail = Mail(app)
+
+# SQLite helper functions
+DATABASE = 'quiz.db'
+
+def get_db():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )""")
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS results (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        username TEXT NOT NULL,
+        emotion TEXT NOT NULL,
+        score INTEGER NOT NULL,
+        total_questions INTEGER NOT NULL,
+        correct_answers INTEGER NOT NULL,
+        time_taken INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )""")
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        username TEXT NOT NULL,
+        rating INTEGER NOT NULL,
+        comments TEXT,
+        category TEXT,
+        emoji_reaction TEXT,
+        camera_experience TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )""")
+    # ensure category column exists for older databases
+    try:
+        cursor.execute("ALTER TABLE feedback ADD COLUMN category TEXT")
+    except sqlite3.OperationalError:
+        # column already exists
+        pass
+    conn.commit()
+    conn.close()
+
 
 
 @app.route('/')
@@ -86,60 +134,42 @@ def serve_service_worker():
 def register():
     username = request.form['username']
     email = request.form['email']
-    
+    conn = get_db()
     try:
-        # Check if user already exists
-        existing_user = User.query.filter((User.username == username) | (User.email == email)).first()
-        if existing_user:
-            return jsonify({
-                'success': False,
-                'message': 'Username or email already exists!'
-            })
-        
-        user = User(username=username, email=email)
-        db.session.add(user)
-        db.session.commit()
-        
-        session['user_id'] = user.id
-        session['username'] = user.username
-        session['email'] = user.email
+        cur = conn.execute("SELECT id, username, email FROM users WHERE username=? OR email=?", (username, email))
+        existing = cur.fetchone()
+        if existing:
+            return jsonify({'success': False,'message': 'Username or email already exists!'})
+        cur = conn.execute("INSERT INTO users(username,email) VALUES(?,?)", (username, email))
+        conn.commit()
+        user_id = cur.lastrowid
+        session['user_id'] = user_id
+        session['username'] = username
+        session['email'] = email
         session.modified = True
-        
-        return jsonify({
-            'success': True,
-            'message': 'Registration successful!',
-            'user_id': user.id,
-            'username': user.username
-        })
+        return jsonify({'success': True,'message': 'Registration successful!','user_id': user_id,'username': username})
+    except sqlite3.IntegrityError as e:
+        return jsonify({'success': False, 'message': 'Username or email already exists!'})
     except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            'success': False,
-            'message': f'Registration failed: {str(e)}'
-        })
+        return jsonify({'success': False, 'message': f'Registration failed: {str(e)}'})
+    finally:
+        conn.close()
 
 @app.route('/login', methods=['POST'])
 def login():
     username = request.form['username']
-    
-    user = User.query.filter_by(username=username).first()
-    
+    conn = get_db()
+    cur = conn.execute("SELECT id, username, email FROM users WHERE username=?", (username,))
+    user = cur.fetchone()
+    conn.close()
     if user:
-        session['user_id'] = user.id
-        session['username'] = user.username
-        session['email'] = user.email
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+        session['email'] = user['email']
         session.modified = True
-        
-        return jsonify({
-            'success': True,
-            'message': 'Login successful!',
-            'username': user.username
-        })
+        return jsonify({'success': True,'message': 'Login successful!','username': user['username']})
     else:
-        return jsonify({
-            'success': False,
-            'message': 'User not found! Please register first.'
-        })
+        return jsonify({'success': False,'message': 'User not found! Please register first.'})
 
 @app.route('/detect_emotion', methods=['POST'])
 def detect_emotion():
@@ -184,17 +214,12 @@ def detect_emotion():
 def get_questions(emotion):
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Please login first!'})
-    
-    # Get 5 random questions for the emotion
-    questions = Question.query.filter_by(emotion=emotion).order_by(db.func.random()).limit(5).all()
-    
-    if not questions:
-        # If no questions for this emotion, get any 5 questions
-        questions = Question.query.order_by(db.func.random()).limit(5).all()
-    
-    questions_list = [q.to_dict() for q in questions]
-    
-    return jsonify({'success': True, 'questions': questions_list})
+    # filter by emotion
+    filtered = [q for q in QUESTIONS if q['emotion'] == emotion]
+    if not filtered:
+        filtered = QUESTIONS
+    sampled = random.sample(filtered, min(5, len(filtered)))
+    return jsonify({'success': True, 'questions': sampled})
 
 @app.route('/start_quiz')
 def start_quiz():
@@ -212,57 +237,43 @@ def start_quiz():
 def submit_quiz():
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Please login first!'})
-    
     data = request.json
     answers = data.get('answers', [])
     time_taken = data.get('time_taken', 0)
-    
     score = 0
     correct_count = 0
     total_questions = len(answers)
-    
+    # score using QUESTIONS list
+    qdict = {q['id']: q for q in QUESTIONS}
     for answer in answers:
-        question_id = answer['question_id']
-        selected_option = answer['selected_option']
-        
-        question = Question.query.get(question_id)
-        
-        if question and selected_option == question.correct_answer:
-            score += question.points
+        qid = answer['question_id']
+        sel = answer['selected_option']
+        q = qdict.get(qid)
+        if q and sel == q['correct_answer']:
+            score += q['points']
             correct_count += 1
-    
-    # Create and save result
-    result = Result(
-        user_id=session['user_id'],
-        username=session['username'],
-        emotion=session.get('current_emotion', 'neutral'),
-        score=score,
-        total_questions=total_questions,
-        correct_answers=correct_count,
-        time_taken=time_taken
+    # save to sqlite
+    conn = get_db()
+    cur = conn.execute(
+        """INSERT INTO results(user_id, username, emotion, score, total_questions, correct_answers, time_taken)
+           VALUES(?,?,?,?,?,?,?)""",
+        (session['user_id'], session['username'], session.get('current_emotion','neutral'), score, total_questions, correct_count, time_taken)
     )
-    
-    db.session.add(result)
-    db.session.commit()
-    
-    # Calculate rank
-    rank = Result.query.filter(
-        (Result.score > score) | ((Result.score == score) & (Result.time_taken < time_taken))
-    ).count() + 1
-    
+    conn.commit()
+    result_id = cur.lastrowid
+    # calculate rank by querying all results
+    cur = conn.execute("SELECT score, time_taken FROM results")
+    rows = cur.fetchall()
+    rank = 1
+    for r in rows:
+        if r['score'] > score or (r['score'] == score and r['time_taken'] < time_taken):
+            rank += 1
+    conn.close()
     session['last_score'] = score
     session['last_correct'] = correct_count
     session['last_total'] = total_questions
-    session['last_result_id'] = result.id
-    
-    return jsonify({
-        'success': True,
-        'score': score,
-        'correct': correct_count,
-        'total': total_questions,
-        'rank': rank,
-        'result_id': result.id
-    })
+    session['last_result_id'] = result_id
+    return jsonify({'success': True,'score': score,'correct': correct_count,'total': total_questions,'rank': rank,'result_id': result_id})
 
 @app.route('/result')
 def result():
@@ -278,33 +289,79 @@ def result():
 
 @app.route('/leaderboard')
 def leaderboard():
-    # Get top 10 scores
-    top_scores_raw = db.session.query(Result).order_by(
-        Result.score.desc(), 
-        Result.time_taken.asc()
-    ).limit(10).all()
-    
-    # Convert to dicts and format dates
-    top_scores = []
-    for result in top_scores_raw:
-        score_dict = result.to_dict()
-        score_dict['created_at_formatted'] = result.created_at.strftime('%Y-%m-%d') if result.created_at else 'N/A'
-        top_scores.append(result)  # Keep original object for template access
-    
-    user_best = None
-    if 'user_id' in session:
-        user_results = Result.query.filter_by(user_id=session['user_id']).all()
-        if user_results:
-            user_best = {
-                'best_score': max(r.score for r in user_results),
-                'total_quizzes': len(user_results),
-                'emotions_played': ', '.join(set(r.emotion for r in user_results))
+    conn = get_db()
+    cur = conn.execute("SELECT user_id, username, score, correct_answers, total_questions FROM results")
+    rows = cur.fetchall()
+    conn.close()
+    total_players = len(set(r['user_id'] for r in rows))
+    avg_score = sum(r['score'] for r in rows) / len(rows) if rows else 0
+    # accumulate per-player stats
+    player_best = {}
+    for r in rows:
+        uid = r['user_id']
+        if uid not in player_best:
+            player_best[uid] = {
+                'username': r['username'],
+                'best_score': r['score'],
+                'total_score': r['score'],
+                'total_quizzes': 1,
+                'correct_answers': r['correct_answers'],
+                'total_questions': r['total_questions']
             }
-    
+        else:
+            stats = player_best[uid]
+            stats['best_score'] = max(stats['best_score'], r['score'])
+            stats['total_score'] += r['score']
+            stats['total_quizzes'] += 1
+            stats['correct_answers'] += r['correct_answers']
+            stats['total_questions'] += r['total_questions']
+    leaderboard = []
+    for uid, stats in player_best.items():
+        acc = (stats['correct_answers'] / stats['total_questions'] * 100) if stats['total_questions'] else 0
+        leaderboard.append({
+            'user_id': uid,
+            'username': stats['username'],
+            'best_score': stats['best_score'],
+            'total_score': stats['total_score'],
+            'accuracy': round(acc,1),
+            'quiz_count': stats['total_quizzes'],
+            'is_current_user': session.get('user_id') == uid
+        })
+    leaderboard.sort(key=lambda x: (x['best_score'], x['total_score']), reverse=True)
+    top_players = leaderboard[:3]
+    your_rank = 'N/A'; your_best_score = 0
+    your_stats = None
+    if 'user_id' in session:
+        uid = session['user_id']
+        for idx,p in enumerate(leaderboard,1):
+            if p['user_id'] == uid:
+                your_rank = idx
+                your_best_score = p['best_score']
+                break
+        # compute user stats from player_best dict
+        stats = player_best.get(uid)
+        if stats:
+            total_quizzes = stats['total_quizzes']
+            best_score = stats['best_score']
+            avg_score_user = stats['total_score'] / total_quizzes if total_quizzes else 0
+            best_accuracy = (stats['correct_answers'] / stats['total_questions'] * 100) if stats['total_questions'] else 0
+            total_points = stats['total_score']
+            your_stats = {
+                'total_quizzes': total_quizzes,
+                'best_score': best_score,
+                'avg_score': round(avg_score_user,1),
+                'best_accuracy': round(best_accuracy,1),
+                'total_points': total_points
+            }
     return render_template('leaderboard.html',
-                         top_scores=top_scores,
-                         user_best=user_best,
-                         username=session.get('username', 'Guest'))
+                         total_players=total_players,
+                         avg_score=round(avg_score,1),
+                         your_rank=your_rank,
+                         your_best_score=your_best_score,
+                         top_players=top_players,
+                         leaderboard=leaderboard,
+                         your_stats=your_stats,
+                         username=session.get('username','Guest'))
 
 @app.route('/certificate')
 def certificate():
@@ -327,58 +384,81 @@ def certificate():
 def feedback():
     if 'user_id' not in session:
         return redirect(url_for('home'))
-    return render_template('feedback.html', username=session['username'])
+    conn = get_db()
+    cur = conn.execute("SELECT user_id, rating FROM feedback")
+    rows = cur.fetchall()
+    conn.close()
+    total_feedback = len(rows)
+    avg_rating = sum(r['rating'] for r in rows) / total_feedback if total_feedback > 0 else 0
+    satisfied = sum(1 for r in rows if r['rating'] >= 4)
+    satisfaction_rate = (satisfied / total_feedback * 100) if total_feedback > 0 else 0
+    unique_users = len(set(r['user_id'] for r in rows))
+    # compute rating distribution counts
+    rating_counts = {i:0 for i in range(1,6)}
+    for r in rows:
+        rating_counts[r['rating']] = rating_counts.get(r['rating'], 0) + 1
+    max_feedback_count = max(rating_counts.values()) if rating_counts else 0
+    # prepare recent_feedback list of dicts
+    recent = []
+    conn = get_db()
+    cur = conn.execute("SELECT username, rating, comments, emoji_reaction, camera_experience, created_at FROM feedback ORDER BY created_at DESC LIMIT 6")
+    recrows = cur.fetchall()
+    conn.close()
+    for r in recrows:
+        recent.append({
+            'username': r['username'],
+            'rating': r['rating'],
+            'feedback': r['comments'],
+            'emotion': r['emoji_reaction'] if 'emoji_reaction' in r.keys() else '',
+            'category': r['category'] if 'category' in r.keys() else '',
+            'date': r['created_at']
+        })
+    category_counts = {}
+    return render_template('feedback.html',
+                         username=session['username'],
+                         total_feedback=total_feedback,
+                         avg_rating=round(avg_rating,1),
+                         satisfaction_rate=round(satisfaction_rate,0),
+                         unique_users=unique_users,
+                         recent_feedback=recent,
+                         rating_counts=rating_counts,
+                         max_feedback_count=max_feedback_count,
+                         category_counts=category_counts)
 
 @app.route('/submit_feedback', methods=['POST'])
 def submit_feedback():
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Please login first!'})
-    
     data = request.json
     rating = data.get('rating')
     comments = data.get('comments', '')
     emoji_reaction = data.get('emoji_reaction', '')
     camera_experience = data.get('camera_experience', '')
-    
-    feedback_obj = Feedback(
-        user_id=session['user_id'],
-        username=session['username'],
-        rating=rating,
-        comments=comments,
-        emoji_reaction=emoji_reaction,
-        camera_experience=camera_experience
+    conn = get_db()
+    category = data.get('category','')
+    conn.execute(
+        """INSERT INTO feedback(user_id, username, rating, comments, category, emoji_reaction, camera_experience)
+           VALUES(?,?,?,?,?,?,?)""",
+        (session['user_id'], session['username'], rating, comments, category, emoji_reaction, camera_experience)
     )
-    
-    db.session.add(feedback_obj)
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'message': 'Thank you for your feedback!'
-    })
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True,'message': 'Thank you for your feedback!'})
 
 @app.route('/get_feedback_stats')
 def get_feedback_stats():
-    all_feedback = Feedback.query.all()
-    
-    total = len(all_feedback)
-    avg_rating = sum(f.rating for f in all_feedback) / total if total > 0 else 0
-    camera_users = sum(1 for f in all_feedback if f.camera_experience)
-    
-    # Get rating distribution
+    conn = get_db()
+    cur = conn.execute("SELECT rating, camera_experience FROM feedback")
+    rows = cur.fetchall()
+    conn.close()
+    total = len(rows)
+    avg_rating = sum(r['rating'] for r in rows) / total if total > 0 else 0
+    camera_users = sum(1 for r in rows if r['camera_experience'])
     rating_counts = {}
-    for f in all_feedback:
-        rating_counts[f.rating] = rating_counts.get(f.rating, 0) + 1
-    
+    for r in rows:
+        rating_counts[r['rating']] = rating_counts.get(r['rating'], 0) + 1
     rating_dist = [{'rating': r, 'count': c} for r, c in sorted(rating_counts.items())]
-    
-    return jsonify({
-        'success': True,
-        'total': total,
-        'avg_rating': round(avg_rating, 1),
-        'camera_users': camera_users,
-        'rating_distribution': rating_dist
-    })
+    return jsonify({'success': True,'total': total,'avg_rating': round(avg_rating,1),'camera_users': camera_users,'rating_distribution': rating_dist})
 
 @app.route('/send_certificate_email', methods=['POST'])
 def send_certificate_email():
@@ -391,6 +471,9 @@ def send_certificate_email():
     if not email:
         return jsonify({'success': False, 'message': 'No email provided!'})
     
+    if Mail is None:
+        # Flask-Mail not installed or disabled; skip email send
+        return jsonify({'success': False, 'message': 'Email support not available'})
     try:
         msg = Message('Your Emotion Quiz Certificate',
                       sender='your-email@gmail.com',
