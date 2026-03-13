@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file
 
-# Flask-Mail is an optional dependency; if it's not installed we
-# fall back to a no-op so that the rest of the app continues to work.
+
 try:
     from flask_mail import Mail, Message
 except ImportError:
@@ -15,7 +14,6 @@ from datetime import datetime
 import random
 import base64
 
-# in-memory list of sample questions with id
 QUESTIONS = []
 
 def create_sample_questions():
@@ -53,11 +51,9 @@ create_sample_questions()
 app = Flask(__name__)
 app.secret_key = 'emotion-quiz-secret-key-2024'
 
-# Session configuration
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
 
-# Mail configuration
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
@@ -65,7 +61,6 @@ app.config['MAIL_USERNAME'] = 'your-email@gmail.com'  # Change this
 app.config['MAIL_PASSWORD'] = 'your-password'  # Change this
 mail = Mail(app)
 
-# SQLite helper functions
 DATABASE = 'quiz.db'
 
 def get_db():
@@ -107,11 +102,9 @@ def init_db():
         camera_experience TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )""")
-    # ensure category column exists for older databases
     try:
         cursor.execute("ALTER TABLE feedback ADD COLUMN category TEXT")
     except sqlite3.OperationalError:
-        # column already exists
         pass
     conn.commit()
     conn.close()
@@ -176,7 +169,6 @@ def detect_emotion():
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Please login first!'})
     
-    # Check if image file is provided
     if 'image' not in request.files:
         return jsonify({'success': False, 'message': 'No image provided'})
     
@@ -186,16 +178,12 @@ def detect_emotion():
         return jsonify({'success': False, 'message': 'No file selected'})
     
     try:
-        # Read the image file
         image_data = file.read()
         
-        # For demo purposes, randomly select an emotion
-        # In a real project, you would use a deep learning model for emotion detection
         emotions = ['happy', 'sad', 'angry', 'neutral', 'excited']
         detected_emotion = random.choice(emotions)
         confidence = random.uniform(0.75, 0.99)
         
-        # Store emotion in session
         session['current_emotion'] = detected_emotion
         
         return jsonify({
@@ -214,7 +202,6 @@ def detect_emotion():
 def get_questions(emotion):
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Please login first!'})
-    # filter by emotion
     filtered = [q for q in QUESTIONS if q['emotion'] == emotion]
     if not filtered:
         filtered = QUESTIONS
@@ -243,7 +230,6 @@ def submit_quiz():
     score = 0
     correct_count = 0
     total_questions = len(answers)
-    # score using QUESTIONS list
     qdict = {q['id']: q for q in QUESTIONS}
     for answer in answers:
         qid = answer['question_id']
@@ -252,7 +238,6 @@ def submit_quiz():
         if q and sel == q['correct_answer']:
             score += q['points']
             correct_count += 1
-    # save to sqlite
     conn = get_db()
     cur = conn.execute(
         """INSERT INTO results(user_id, username, emotion, score, total_questions, correct_answers, time_taken)
@@ -261,7 +246,6 @@ def submit_quiz():
     )
     conn.commit()
     result_id = cur.lastrowid
-    # calculate rank by querying all results
     cur = conn.execute("SELECT score, time_taken FROM results")
     rows = cur.fetchall()
     rank = 1
@@ -295,7 +279,6 @@ def leaderboard():
     conn.close()
     total_players = len(set(r['user_id'] for r in rows))
     avg_score = sum(r['score'] for r in rows) / len(rows) if rows else 0
-    # accumulate per-player stats
     player_best = {}
     for r in rows:
         uid = r['user_id']
@@ -338,7 +321,6 @@ def leaderboard():
                 your_rank = idx
                 your_best_score = p['best_score']
                 break
-        # compute user stats from player_best dict
         stats = player_best.get(uid)
         if stats:
             total_quizzes = stats['total_quizzes']
@@ -393,12 +375,10 @@ def feedback():
     satisfied = sum(1 for r in rows if r['rating'] >= 4)
     satisfaction_rate = (satisfied / total_feedback * 100) if total_feedback > 0 else 0
     unique_users = len(set(r['user_id'] for r in rows))
-    # compute rating distribution counts
     rating_counts = {i:0 for i in range(1,6)}
     for r in rows:
         rating_counts[r['rating']] = rating_counts.get(r['rating'], 0) + 1
     max_feedback_count = max(rating_counts.values()) if rating_counts else 0
-    # prepare recent_feedback list of dicts
     recent = []
     conn = get_db()
     cur = conn.execute("SELECT username, rating, comments, emoji_reaction, camera_experience, created_at FROM feedback ORDER BY created_at DESC LIMIT 6")
@@ -472,7 +452,6 @@ def send_certificate_email():
         return jsonify({'success': False, 'message': 'No email provided!'})
     
     if Mail is None:
-        # Flask-Mail not installed or disabled; skip email send
         return jsonify({'success': False, 'message': 'Email support not available'})
     try:
         msg = Message('Your Emotion Quiz Certificate',
